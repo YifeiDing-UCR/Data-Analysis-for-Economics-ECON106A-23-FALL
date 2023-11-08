@@ -1,0 +1,71 @@
+---
+title: "Milestone 3"
+author: "Yifei Ding"
+date: "2023-11-08"
+output: html_document
+---
+
+```{r message=FALSE, warning=FALSE}
+Sys.setenv(LANG = "en")
+library("tidyverse")
+library("skimr")
+```
+
+```{r}
+#Read the dataset you used for your research project, I take the dataset RateMyProfessor as an example
+data_proj <- read_csv(file = "RateMyProfessor_Sample_data.csv")
+head(data_proj)
+```
+
+
+For each categorical variable, you should copy the following template into your R script:
+```{r}
+###name of variable (categorical)
+#step 1: Convert to factor variable
+data_proj <- data_proj %>% mutate(grades = factor(grades))
+#step 2: Show levels of the factor variable
+levels(data_proj$grades)
+#step 3: Reduce the number of levels (no more than 4-5 levels) by either #removing levels when there is no valid answer given or combining levels
+data_proj <- data_proj %>% mutate(grades = fct_collapse(grades, "A" = c("A", "A-", "A+"), "B" = c("B-", "B", "B+"), "C" = c("C-", "C", "C+"), "D" = c("D-", "D", "D+")))
+data_proj$grades <- factor(data_proj$grades, levels = c("A", "B", "C", "D", "F"))
+#step 4: Create a frequency table of the levels
+table(data_proj$grades)
+```
+
+
+2. For each quantitative variable, you should copy the following template into your R script:
+```{r}
+#name of variable (quantitative)
+
+##step 1: convert to numeric, date, or logical (whichever is the most appropriate). You can create additional variables if you have a date/time object (time of day, day of week, etc).
+data_proj <- data_proj %>% mutate(star_rating = as.numeric(star_rating))
+## step 2: create a summary table of the variable (min, max, mean, median, n)
+summary(data_proj$star_rating)
+#Calculate the standard deviation
+sd(data_proj$star_rating, na.rm = TRUE)
+#Get the number of missing values
+sum(is.na(data_proj$star_rating))
+#skim(data_proj)
+```
+
+Template for other types of variables:
+```{r}
+# Geography (county, state) or names: report the number of levels instead of all the levels
+data_proj <- data_proj %>% mutate(state_name = factor(state_name))
+levels(data_proj$state_name)
+nlevels(data_proj$state_name)
+```
+
+
+```{r}
+data_proj %>% filter(!is.na(grades)) %>%
+ggplot(mapping= aes(x=grades))+ 
+  geom_bar()
+
+```
+
+```{r}
+data_proj %>%
+ggplot(mapping=aes(x=star_rating)) + geom_density(adjust=2)
+```
+
