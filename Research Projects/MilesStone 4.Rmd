@@ -1,0 +1,16 @@
+---
+title: "Research Milestone 4"
+author: "Yifei Ding"
+date: "2023-11-30"
+output: html_document
+---
+
+```{r message=FALSE, warning=FALSE}
+Sys.setenv(LANG = "en")
+library("tidyverse")
+```
+
+```{r}
+data_set <- read_csv(file = "RateMyProfessor_Sample_data.csv")
+```
+
