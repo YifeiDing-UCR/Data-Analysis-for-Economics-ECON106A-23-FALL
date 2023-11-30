@@ -1,0 +1,166 @@
+---
+title: "Lab_Assignment_5"
+author: "Yifei Ding"
+date: "2023-11-17"
+output: html_document
+---
+
+```{r}
+Sys.setenv(LANG = "en")
+setwd("E:/R/R program/Data-Analysis-for-Economics-ECON106A-23-FALL/Lab Assignments")
+library(tidyverse)
+library(sf)
+library(units)
+```
+
+Part I. Cleanup 1. Read in the District Areas Shapefile. Transform the CRS to CA Albers Equal Area.
+
+```{r message=FALSE}
+School_Districts<-st_read("DistrictAreas2122.shp")
+```
+
+2.  Read in the District College Outcomes csv file. Convert the CDCode to character. Create a variable that represents the CSU going rate. Create a variable that represents the UC going rate.
+3.  Left Join the District Areas sf object to the District College outcomes.
+
+```{r message=FALSE}
+#read in college outcomes by district
+District_College_Outcomes<-read_csv("District College Outcomes.csv")
+District_College_Outcomes<-District_College_Outcomes%>%
+  mutate(CDCode=as.character(CDCode))
+
+School_Districts_join<-left_join(x=School_Districts, y=District_College_Outcomes)
+
+#use albers projections
+School_Districts_Albers<-st_transform(School_Districts_join, crs=3310)
+
+School_Districts_rates<- School_Districts_Albers %>%
+  mutate(CSU_rate=`Enrolled CSU (12 Months)`/`High School Completers`,
+         UC_rate = `Enrolled UC (12 Months)`/`High School Completers`)
+```
+
+4.Read in the college locations csv file. Convert the data frame to a sf object. Transform the CRS to CA Albers Equal Area. Create a sf object for campuses that are part of the CSU system. Create a sf object for campuses that are part of the UC system
+
+```{r message=FALSE}
+#load excel file of GPS coordinates of college campuses into R
+college_data <- read_csv("college locations.csv")
+
+#select CSU's from this dataset
+CSU_data <-college_data %>%
+  filter(F1SYSNAM == "California State University")
+
+# Convert CSU_data to a sf object
+CSU_sf <- st_as_sf(CSU_data, coords = c("LONGITUD", "LATITUDE"), crs = 4269)
+
+#select UC's from this dataset
+UC_data <-college_data %>%
+  filter(F1SYSNAM == "University of California")%>%
+  filter(IALIAS!="UCOP")
+
+# Convert CSU_data to a sf object
+UC_sf <- st_as_sf(UC_data, coords = c("LONGITUD", "LATITUDE"), crs = 4269)
+
+CSUSB<-CSU_sf%>%
+  filter(IALIAS=="Cal State San Bernardino")
+```
+
+```{r}
+#project to CA Albers
+
+UC_Albers<-st_transform(UC_sf, crs=3310)
+
+CSU_Albers<-st_transform(CSU_sf, crs=3310)
+
+CSUSB_Albers<-st_transform(CSUSB, crs=3310)
+```
+
+Part II. Analysis 1. Create a map of CSU going rates by district with the CSU locations overlayed.
+
+```{r}
+#csu going & CSU locations
+ggplot()+
+  geom_sf(data=School_Districts_rates, aes(fill=`CSU_rate`))+
+  geom_sf(data=CSU_Albers, color='red')
+```
+
+2.Create a map of the UC going rates by district with the UC locations overlayed.
+
+```{r}
+#uc going & uc locations
+ggplot()+
+  geom_sf(data=School_Districts_rates, aes(fill=`UC_rate`))+
+  geom_sf(data=UC_Albers, color='red')
+```
+
+4.  Let's focus on school districts in Riverside County. Find the following:
+
+```{=html}
+<!-- -->
+```
+a.  The largest school district by area (sq miles)
+b.  The largest school district by #enrolled students
+c.  The school district with the highest CSU going rate
+
+```{r}
+Riverside_Districts<-School_Districts_rates%>%
+  filter(CountyName=="Riverside")
+```
+
+```{r}
+#what is the largest school district in Riverside by Area (square miles)?
+Riverside_Districts%>%
+  mutate(area=set_units(st_area(Riverside_Districts), mi^2))%>%
+arrange(desc(area))%>%
+  select(DistrictNa, area)%>%
+  slice_head(n=5)
+```
+
+```{r}
+#what is the largest school district in Riverside by # Total Enrollment?
+Riverside_Districts%>%
+  arrange(desc(EnrollTota))%>%
+  select(DistrictNa, EnrollTota)%>%
+  slice_head(n=5)
+```
+
+```{r}
+#what is the school district with the highest CSU college going rates?
+Riverside_Districts%>%
+  arrange(desc(CSU_rate))%>%
+  select(DistrictNa, CSU_rate)%>%
+  slice_head(n=5)
+```
+
+5.  Calculate the distance between the Riverside School District Centroids and CSU San Bernadino (the closest CSU). Is the school district with the highest CSU going rate the closest to CSUSB?
+
+```{r}
+Jurupa_Unified<-Riverside_Districts%>%
+  filter(DistrictNa=="Jurupa Unified")
+
+set_units(st_distance(Jurupa_Unified, CSUSB_Albers), mi)
+```
+
+```{r}
+Riverside_Districts_Centroids <- st_centroid(Riverside_Districts)
+
+Distance_RDC_CSUSB <- set_units( st_distance(CSUSB_Albers, Riverside_Districts_Centroids) , mi)
+colnames(Distance_RDC_CSUSB) <- Riverside_Districts_Centroids$DistrictNa
+Distance_RDC_CSUSB
+```
+
+```{r}
+data_q6 <- School_Districts_rates %>%
+pivot_longer(cols= c(`CSU_rate`, `UC_rate`), names_to = "University_Systems", values_to = "College_Going_Rate")
+
+data_q6 <- data_q6 %>% 
+  group_by(CountyName,University_Systems) %>%
+  summarise(College_going_rate_median = median(College_Going_Rate, na.rm = TRUE))
+```
+
+```{r}
+data_q6 %>% na.omit() %>%
+ggplot(mapping=aes(x= CountyName, y= College_going_rate_median)) +
+geom_col(aes(color= University_Systems))+
+scale_fill_brewer(palette = "Set2") +
+theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 0.8))
+```
